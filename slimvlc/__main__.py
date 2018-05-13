@@ -33,7 +33,7 @@ if __name__ == '__main__':
     setup_logging()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--verbose', default=False, action='store_true')
+    parser.add_argument('-v', default=[], action='append_const', const=1, dest='verbose')
     parser.add_argument(
         '-ss', '--start-position', default=0, type=str,
         help='Start Playback from this point')
@@ -50,8 +50,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if args.verbose:
+        args.verbose = sum(args.verbose)
         logger.setLevel(logging.DEBUG)
-        VLC.set_instance(VLC.make_instance(verbose=3))
+        VLC.set_instance(VLC.make_instance(verbose=args.verbose))
 
     vlc = VLC(args.filepath, args.snaps_dir)
     while vlc.status == Status.PARSING:
