@@ -199,19 +199,23 @@ class VLC(object):
             self._player.audio_toggle_mute()
 
     def enslave(self, path):
+        logger.debug(f'Enslaving {path}')
         while True:
-            with open(path, 'rb') as fh:
-                queue = []
-                for char in iter(lambda: fh.read(1), ''):
-                    logger.debug('Char! {}'.format(char))
-                    if char == '\n':
-                        command = ''.join(queue)
-                        self._handle_mplayer_command(command)
-                        queue[:] = []
-                        continue
-                    queue.append(char)
-                logger.debug('Drained fifo.')
-            time.sleep(0.2)
+            try:
+                with open(path, 'rb') as fh:
+                    queue = []
+                    for char in iter(lambda: fh.read(1), ''):
+                        logger.debug('Char! {}'.format(char))
+                        if char == '\n':
+                            command = ''.join(queue.decode('utf8'))
+                            self._handle_mplayer_command(command)
+                            queue[:] = []
+                            continue
+                        queue.append(char)
+                    logger.debug('Drained fifo.')
+                time.sleep(0.2)
+            except Exception:
+                logger.exception('wtf')
 
     def play(self, pause_immediatly=False):
         logger.info('Playing {}'.format(self._media_info.get_mrl()))
