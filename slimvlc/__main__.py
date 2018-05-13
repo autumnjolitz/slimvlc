@@ -10,7 +10,7 @@ from vlc import EventType
 
 from .player import VLC, VLCWindow, Status
 
-logger = logging.getLogger('slimvlc.__main__')
+logger = logging.getLogger('slimvlc')
 
 DEFAULT_SNAPS_LOCATION = os.path.abspath(os.getcwd())
 DEFAULT_FORMATTER = \
