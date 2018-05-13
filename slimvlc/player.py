@@ -375,7 +375,7 @@ class VLC(object):
         assert isinstance(verbose, (int, bool))
         args = [
             '--sub-source=marq',
-            '-V', 'macosx',
+            '-V', 'caopengllayer',
             '--freetype-fontsize',
             '20',
             '--no-metadata-network-access',
