@@ -1,4 +1,4 @@
-import urllib
+import urllib.parse
 import logging
 import time
 from enum import Enum
@@ -183,7 +183,7 @@ class VLC(object):
             logger.error('Unable to set the subtitle track: {}'.format(libvlc_errmsg()))
 
     def _handle_mplayer_command(self, command):
-        command = urllib.unquote(command)
+        command = urllib.parse.unquote(command)
         if command.startswith('seek '):
             logger.debug('Seek ? {}'.format(command))
             seconds = int(command.split(' ', 2)[1], 10)
@@ -204,10 +204,10 @@ class VLC(object):
             try:
                 with open(path, 'rb') as fh:
                     queue = []
-                    for char in iter(lambda: fh.read(1), ''):
+                    for char in iter(lambda: fh.read(1), b''):
                         logger.debug('Char! {}'.format(char))
-                        if char == '\n':
-                            command = ''.join(queue.decode('utf8'))
+                        if char == b'\n':
+                            command = b''.join(queue).decode('utf8')
                             self._handle_mplayer_command(command)
                             queue[:] = []
                             continue
