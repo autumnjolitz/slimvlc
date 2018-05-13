@@ -5,12 +5,13 @@ from enum import Enum
 from threading import Thread, Lock
 
 from PySide2 import QtCore
-from PySide2.QtWidgets import QApplication, QFrame
+from PySide2.QtWidgets import QApplication, QOpenGLWidget
 from PySide2.QtGui import QCursor
 
 from vlc import (
     Instance, EventType, VideoMarqueeOption, Position, TrackType,
     Media,
+    libvlc_video_get_spu,
     # MediaSlaveType,
 )
 import ctypes
@@ -60,12 +61,13 @@ class Status(Enum):
     PARSED = 3
 
 
-class VLCWindow(QFrame):
+class VLCWindow(QOpenGLWidget):
     def __init__(self, vlc):
         assert isinstance(vlc, VLC)
         self._vlc = vlc
 
         super(VLCWindow, self).__init__()
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_OpaquePaintEvent)
 
         QApplication.setOverrideCursor(QCursor(QtCore.Qt.BlankCursor))
 
@@ -75,27 +77,22 @@ class VLCWindow(QFrame):
         self.showFullScreen()
         self.raise_()
 
+        self._subtitle_index = 0
         self._vlc._player.set_nsobject(self.winId())
 
-        self._subtitle_index = 0
-        self._timer = QtCore.QTimer()
-        self.connect(self._timer, QtCore.SIGNAL("timeout()"), self, QtCore.SLOT("play()"))
-        self._timer.start(1)
-
         self._vlc.add_event_listener(
-            EventType.MediaPlayerEndReached, lambda: self.close())
-        self._vlc.add_event_listener(EventType.MediaPlayerStopped, lambda: self.close())
+            EventType.MediaPlayerEndReached, self.close)
+        self._vlc.add_event_listener(EventType.MediaPlayerStopped, self.close)
         self._vlc.add_event_listener(
             EventType.MediaPlayerPositionChanged, self._vlc._on_position_change)
         self._vlc.add_event_listener(EventType.MediaPlayerVout, self._on_play_start)
+        self.play()
 
     def _on_play_start(self):
         self._vlc._subtitle_index = 0
-        self._vlc.cycle_subtitles()
+        self._vlc._player.video_set_spu(-1)
 
     def play(self):
-        if self._timer.isActive():
-            self._timer.stop()
         self._vlc.play()
 
     def pause(self):
@@ -154,33 +151,34 @@ class VLC(object):
 
     def cycle_subtitles(self):
         assert self.status == Status.PARSED, 'You can\'t cycle subs for this status!'
+        logger.debug(f'SPUs offered: {self._player.video_get_spu_description()}')
+        logger.debug(f'Tracks {self._subtitles}')
 
-        if not self._subtitles:
+        if len(self._subtitles) < 2:
             logger.debug('No subtitles to cycle with!')
             return
 
-        if any(x['id'] is None for x in self._subtitles):
-            items = self._player.video_get_spu_description()
-            if len(items) > len(self._subtitles):
-                self._subtitles.extend(
-                    {
-                        'id': None,
-                        'name': None,
-                        'track': None
-                    } for _ in range(len(items) - len(self._subtitles)))
-            for item, sub in zip(items, self._subtitles):
-                sub['id'] = item[0]
-                sub['name'] = item[1]
-
+        current_subtitle_track = libvlc_video_get_spu(self._player)
+        logger.debug(f'Current subtitle id before set: {current_subtitle_track}')
         self._subtitle_index = (self._subtitle_index + 1) % len(self._subtitles)
 
         track = self._subtitles[self._subtitle_index]
-        result = self._player.video_set_spu(track['id'])
+        track_id = track['id']
+        if track_id > -1:
+            # VLC subtitles appear to be:
+            #   -1 disable
+            #   track_id + 1
+            track_id += 1
+        result = self._player.video_set_spu(track_id)
+
         logger.info('Setting subtitle track to {} ({}) -> {} -> {}'.format(
-            track['name'], track['id'], track['track'], result))
+            track['name'], track_id, track, result))
 
         if result == -1:
             logger.error('Unable to set the subtitle track: {}'.format(libvlc_errmsg()))
+
+        current_subtitle_track = libvlc_video_get_spu(self._player)
+        logger.debug(f'Current subtitle id after set: {current_subtitle_track}')
 
     def _handle_mplayer_command(self, command):
         command = urllib.parse.unquote(command)
@@ -319,7 +317,11 @@ class VLC(object):
         self._media_parsed(media, True)
 
     def media_info(self, path):
-        self._subtitles = [{'id': -1, 'name': None, 'track': None}]
+        self._subtitles = [{
+            'id': -1,
+            'name': 'nolang',
+            'track': None,
+        }]
         self.status = Status.PARSING
         media = Media(path)
         self._media_info = media
@@ -362,13 +364,13 @@ class VLC(object):
             self.status = Status.PARSED
 
             for track in tracks:
+                logger.debug(f'Track -> {track}')
                 if track.type == TrackType.text:
                     self._subtitles.append({
                         'track': track,
-                        'id': None,
-                        'name': None
+                        'id': track.id,
+                        'name': track.language
                     })
-                logger.debug('Track -> {}'.format(track))
 
     @classmethod
     def make_instance(cls, verbose=False):
@@ -377,9 +379,9 @@ class VLC(object):
             '--sub-source=marq',
             '-V', 'caopengllayer',
             '--freetype-fontsize',
-            '20',
+            '30',
             '--no-metadata-network-access',
-            '--codec=x264,ffmpeg',
+            '--codec=x264,ffmpeg,videotoolbox',
             '--disable-screensaver',
             '--no-snapshot-preview',  # Don't show a snapshot preview after taking it
         ]
