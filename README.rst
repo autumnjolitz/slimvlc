@@ -18,3 +18,7 @@ Production::
 
     python3 -m pip install git+https://github.com/benjolitz/slimvlc.git#egg=slimvlc --process-dependency-links --trusted-host download.qt.io
 
+Running
+------------
+
+    python3 -m slimvlc --help
