@@ -195,6 +195,11 @@ class VLC(object):
             self._player.stop()
         elif command.startswith('mute'):
             self._player.audio_toggle_mute()
+        elif command.startswith('osd '):
+            logger.debug('OSD ? {}'.format(command))
+            level = int(command.split(' ', 1)[1], 10)
+            # self.osd_visibility = level
+            self.osd_visibility = not self.osd_visibility
 
     def enslave(self, path):
         logger.debug(f'Enslaving {path}')
