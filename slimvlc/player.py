@@ -132,7 +132,7 @@ class VLCWindow(QOpenGLWidget):
 class VLC(object):
     INSTANCE = None
 
-    def __init__(self, media_path, snapshot_directory=None):
+    def __init__(self, media_path, snapshot_directory=None, osd_visible=False):
         self._lock = Lock()
         self._subtitles = ()
         self._subtitle_index = None
@@ -145,7 +145,7 @@ class VLC(object):
         self._player = self.INSTANCE.media_player_new()
         self.event_manager = self._player.event_manager()
         self.status = Status.REQUIRES_MEDIA
-        self.setup_osd()
+        self.setup_osd(osd_visible)
 
         self.media_info(media_path)
 
@@ -235,14 +235,14 @@ class VLC(object):
     def pause(self):
         self._player.pause()
 
-    def setup_osd(self):
+    def setup_osd(self, osd_visible):
         self._player.video_set_marquee_int(VideoMarqueeOption.Enable, True)
         self._player.video_set_marquee_int(VideoMarqueeOption.Size, 24)  # pixels
         self._player.video_set_marquee_int(VideoMarqueeOption.Position, Position.TopRight)
 
         self._player.video_set_marquee_int(VideoMarqueeOption.Timeout, 1010)  # millisec, 0=forever
         self._player.video_set_marquee_int(VideoMarqueeOption.Refresh, 100)  # millisec (or sec?)
-        self.osd_visibility = False  # default disabled.
+        self.osd_visibility = osd_visible
 
     @property
     def duration_ms(self):

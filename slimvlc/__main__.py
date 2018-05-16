@@ -45,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--snaps-dir', help='Directory where snapshots go (defaults to {})'.format(
             DEFAULT_SNAPS_LOCATION), default=DEFAULT_SNAPS_LOCATION)
+    parser.add_argument('-osd', action='append_const', const=True, dest='osd_visible', help='OSD visibile from start')
     parser.add_argument(
         '--slave', help='MPlayer Slave mode emulation - set to a FIFO', default=None)
 
@@ -54,7 +55,7 @@ if __name__ == '__main__':
         logger.setLevel(logging.DEBUG)
         VLC.set_instance(VLC.make_instance(verbose=args.verbose))
 
-    vlc = VLC(args.filepath, args.snaps_dir)
+    vlc = VLC(args.filepath, args.snaps_dir, args.osd_visible)
     while vlc.status == Status.PARSING:
         time.sleep(0.5)
     if vlc.status != Status.PARSED:
