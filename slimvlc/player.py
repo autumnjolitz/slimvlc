@@ -145,7 +145,7 @@ class VLC(object):
         self._player = self.INSTANCE.media_player_new()
         self.event_manager = self._player.event_manager()
         self.status = Status.REQUIRES_MEDIA
-        self.setup_osd(osd_visible)
+        self.setup_osd(osd_visible == True)
 
         self.media_info(media_path)
 
