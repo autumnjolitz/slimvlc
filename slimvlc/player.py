@@ -89,8 +89,11 @@ class VLCWindow(QOpenGLWidget):
         self.play()
 
     def _on_play_start(self):
+        first_time = self._vlc._subtitle_index is None
         self._vlc._subtitle_index = 0
-        self._vlc._player.video_set_spu(-1)
+        if first_time:
+            self._vlc._player.video_set_spu(-1)
+            self._vlc.cycle_subtitles(first_time)
 
     def play(self):
         self._vlc.play()
@@ -145,18 +148,28 @@ class VLC(object):
         self._player = self.INSTANCE.media_player_new()
         self.event_manager = self._player.event_manager()
         self.status = Status.REQUIRES_MEDIA
-        self.setup_osd(osd_visible == True)
+        self.setup_osd(osd_visible is True)
 
         self.media_info(media_path)
 
-    def cycle_subtitles(self):
+    def cycle_subtitles(self, correct_sub_ids=False):
         assert self.status == Status.PARSED, 'You can\'t cycle subs for this status!'
-        logger.debug(f'SPUs offered: {self._player.video_get_spu_description()}')
+        sub_ids = self._player.video_get_spu_description()
+        logger.debug(f'SPUs offered: {sub_ids}')
         logger.debug(f'Tracks {self._subtitles}')
 
         if len(self._subtitles) < 2:
             logger.debug('No subtitles to cycle with!')
             return
+
+        if correct_sub_ids:
+            for track, (track_id, name,) in zip(self._subtitles, sub_ids):
+                if track['id'] != track_id:
+                    logger.warn(
+                        'Track id (named {}) was submitted as {} but really should be {}'.format(
+                            name, track['id'], track_id))
+                track['id'] = track_id
+                track['pretty_name'] = name
 
         current_subtitle_track = libvlc_video_get_spu(self._player)
         logger.debug(f'Current subtitle id before set: {current_subtitle_track}')
@@ -164,18 +177,14 @@ class VLC(object):
 
         track = self._subtitles[self._subtitle_index]
         track_id = track['id']
-        if track_id > -1:
-            # VLC subtitles appear to be:
-            #   -1 disable
-            #   track_id + 1
-            track_id += 1
         result = self._player.video_set_spu(track_id)
-
-        logger.info('Setting subtitle track to {} ({}) -> {} -> {}'.format(
-            track['name'], track_id, track, result))
-
+        log = logger.debug
         if result == -1:
-            logger.error('Unable to set the subtitle track: {}'.format(libvlc_errmsg()))
+            log = logger.error
+        log('Setting subtitle track to {} ({}) -> {} -> {}'.format(
+            track['name'], track_id, track, result))
+        if result == -1:
+            log('Unable to set the subtitle track: {}'.format(libvlc_errmsg()))
 
         current_subtitle_track = libvlc_video_get_spu(self._player)
         logger.debug(f'Current subtitle id after set: {current_subtitle_track}')
