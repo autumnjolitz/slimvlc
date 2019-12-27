@@ -27,7 +27,7 @@ if __version__ is None:
     raise IOError('about.py in project lacks __version__!')
 
 setup(name='slimvlc', version=__version__,
-      author='Ben Jolitz',
+      author='Autumn Jolitz',
       description='Thin vlc client',
       long_description=long_description,
       license='BSD',
@@ -38,6 +38,6 @@ setup(name='slimvlc', version=__version__,
       ],
       install_requires=install_requirements,
       keywords=['vlc', 'minimal'],
-      url="https://github.com/benjolitz/slimvlc.git",
+      url="https://github.com/autumnjolitz/slimvlc.git",
       classifiers=[
       ])
