@@ -7,7 +7,7 @@ from setuptools import (setup, find_packages)
 
 here = path.abspath(path.dirname(__file__))
 install_requirements = [
-    'PySide2>=5.9.0a1.dev0',
+    'PySide6',
     'python-vlc',
 ]
 
