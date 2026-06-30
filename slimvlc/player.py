@@ -5,7 +5,7 @@ from enum import Enum
 from threading import Thread, Lock
 
 from PySide6 import QtCore
-from PySide6.QtWidgets import QApplication  # , QOpenGLWidget
+from PySide6.QtWidgets import QApplication #, QOpenGLWidget
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtGui import QCursor
 
@@ -279,9 +279,7 @@ class VLC:
     def setup_osd(self, osd_visible):
         self._player.video_set_marquee_int(VideoMarqueeOption.Enable, True)
         self._player.video_set_marquee_int(VideoMarqueeOption.Size, 24)  # pixels
-        self._player.video_set_marquee_int(
-            VideoMarqueeOption.Position.value, Position.top_right.value
-        )
+        # self._player.video_set_marquee_int(VideoMarqueeOption.Position, Position.top_right)
 
         self._player.video_set_marquee_int(
             VideoMarqueeOption.Timeout, 1010
