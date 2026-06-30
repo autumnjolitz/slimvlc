@@ -3,6 +3,8 @@ import logging
 import time
 from enum import Enum
 from threading import Thread, Lock
+from contextlib import ExitStack
+from functools import partial
 
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication #, QOpenGLWidget
@@ -383,7 +385,10 @@ class VLC:
         media = Media(path)
         self._media_info = media
         mgr = media.event_manager()
-        mgr.event_attach(EventType.MediaParsedChanged, self._on_media_parsed)
+        mgr.event_attach(
+            EventType.MediaParsedChanged,
+            self._on_media_parsed
+        )
         # media.slaves_add(MediaSlaveType.subtitle, 1, 'file://' + EMPTY_SUBTITLE_SRT)
         media.parse_with_options(0x0 | 0x1, 10 * 1000)
 
@@ -395,7 +400,7 @@ class VLC:
         with self._lock:
             tracks = tuple(media.tracks_get())
             if not all((media, tracks)):
-                logger.warning("No media detected!")
+                logger.warning('No media detected!')
                 self.status = Status.REQUIRES_MEDIA
                 self._media_info = None
                 return
@@ -422,9 +427,11 @@ class VLC:
 
             for track in tracks:
                 if track.type.value == 2:
-                    self._subtitles.append(
-                        {"track": track, "id": track.id, "name": track.language}
-                    )
+                    self._subtitles.append({
+                        'track': track,
+                        'id': track.id,
+                        'name': track.language
+                    })
 
     @classmethod
     def make_instance(cls, verbose=False):
