@@ -1,8 +1,8 @@
 Requirements
 ---------------
 
-    - VLC (obtainable via ``brew cask install vlc``)
-    - Python 3.12 (obtainable via ``brew install python``)
+    - VLC (obtainable via ``brew install --cask vlc``)
+    - Python 3.12 (obtainable via ``brew install python@3.12``)
 
 
 Installation
