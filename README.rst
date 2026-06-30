@@ -1,3 +1,7 @@
+=========
+SlimVLC
+=========
+
 Requirements
 ---------------
 
@@ -8,18 +12,49 @@ Requirements
 Installation
 ----------------
 
+Create a ``python/`` venv
 
-Development::
+.. code-block:: console
 
-    python -m pip install -e .
+    $ python3.12 -m venv python
 
 
-Production::
+Development
+^^^^^^^^^^^^^
 
-    python -m pip install git+https://github.com/autumnjolitz/slimvlc.git#egg=slimvlc
+.. code-block:: console
+
+    $ ./python/bin/python -m pip install -e .
+
+
+Production
+^^^^^^^^^^^^
+
+.. code-block:: console
+
+    $ ./python/bin/python -m pip install git+https://github.com/autumnjolitz/slimvlc.git
+
 
 
 Running
 ------------
 
-    python3 -m slimvlc --help
+.. code-block:: console
+
+    $ ./python/bin/python -m slimvlc --help
+    $ ./python/bin/python -m slimvlc /path/to/movie.mp4
+
+
+Verbose
+^^^^^^^^^
+
+.. code-block:: console
+
+    $ ./python/bin/python -m slimvlc -v /path/to/movie.mp4
+
+OSD
+^^^^^
+
+.. code-block:: console
+
+    $ ./python/bin/python -m slimvlc -osd /path/to/movie.mp4
