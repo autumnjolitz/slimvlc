@@ -5,7 +5,7 @@ import stat
 import time
 from threading import Thread
 
-from PySide2.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from vlc import EventType
 
 from .player import VLC, VLCWindow, Status

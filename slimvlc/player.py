@@ -4,9 +4,10 @@ import time
 from enum import Enum
 from threading import Thread, Lock
 
-from PySide2 import QtCore
-from PySide2.QtWidgets import QApplication, QOpenGLWidget
-from PySide2.QtGui import QCursor
+from PySide6 import QtCore
+from PySide6.QtWidgets import QApplication #, QOpenGLWidget
+from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from PySide6.QtGui import QCursor
 
 from vlc import (
     Instance, EventType, VideoMarqueeOption, Position, TrackType,
@@ -247,7 +248,7 @@ class VLC(object):
     def setup_osd(self, osd_visible):
         self._player.video_set_marquee_int(VideoMarqueeOption.Enable, True)
         self._player.video_set_marquee_int(VideoMarqueeOption.Size, 24)  # pixels
-        self._player.video_set_marquee_int(VideoMarqueeOption.Position, Position.TopRight)
+        # self._player.video_set_marquee_int(VideoMarqueeOption.Position, Position.top_right)
 
         self._player.video_set_marquee_int(VideoMarqueeOption.Timeout, 1010)  # millisec, 0=forever
         self._player.video_set_marquee_int(VideoMarqueeOption.Refresh, 100)  # millisec (or sec?)
