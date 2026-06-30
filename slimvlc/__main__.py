@@ -10,12 +10,13 @@ from vlc import EventType
 
 from .player import VLC, VLCWindow, Status
 
-logger = logging.getLogger('slimvlc')
+logger = logging.getLogger("slimvlc")
 
 DEFAULT_SNAPS_LOCATION = os.path.abspath(os.getcwd())
-DEFAULT_FORMATTER = \
-    logging.Formatter('[%(asctime)s] [PID %(process)d] [Thread %(thread)d] '
-                      '[%(name)s] [%(levelname)s] %(message)s')
+DEFAULT_FORMATTER = logging.Formatter(
+    "[%(asctime)s] [PID %(process)d] [Thread %(thread)d] "
+    "[%(name)s] [%(levelname)s] %(message)s"
+)
 
 
 def setup_logging():
@@ -27,27 +28,48 @@ def setup_logging():
     return logger
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
     setup_logging()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', default=[], action='append_const', const=1, dest='verbose')
     parser.add_argument(
-        '-ss', '--start-position', default=0, type=str,
-        help='Start Playback from this point')
+        "-v", default=[], action="append_const", const=1, dest="verbose"
+    )
     parser.add_argument(
-        '-endpos', '--end-position', default=0, type=int,
-        help='End playback at this point. If an untyped number is passed, assume seconds. '
-        'If a start position is specified and the end position is in seconds, assume an offset.')
-    parser.add_argument('filepath', metavar='FILE', help='File to play')
+        "-ss",
+        "--start-position",
+        default=0,
+        type=str,
+        help="Start Playback from this point",
+    )
     parser.add_argument(
-        '--snaps-dir', help='Directory where snapshots go (defaults to {})'.format(
-            DEFAULT_SNAPS_LOCATION), default=DEFAULT_SNAPS_LOCATION)
-    parser.add_argument('-osd', action='append_const', const=True, dest='osd_visible', help='OSD visibile from start')
+        "-endpos",
+        "--end-position",
+        default=0,
+        type=int,
+        help="End playback at this point. If an untyped number is passed, assume seconds. "
+        "If a start position is specified and the end position is in seconds, assume an offset.",
+    )
+    parser.add_argument("filepath", metavar="FILE", help="File to play")
     parser.add_argument(
-        '--slave', help='MPlayer Slave mode emulation - set to a FIFO', default=None)
+        "--snaps-dir",
+        help="Directory where snapshots go (defaults to {})".format(
+            DEFAULT_SNAPS_LOCATION
+        ),
+        default=DEFAULT_SNAPS_LOCATION,
+    )
+    parser.add_argument(
+        "-osd",
+        action="append_const",
+        const=True,
+        dest="osd_visible",
+        help="OSD visibile from start",
+    )
+    parser.add_argument(
+        "--slave", help="MPlayer Slave mode emulation - set to a FIFO", default=None
+    )
 
     args = parser.parse_args()
     if args.verbose:
@@ -59,13 +81,13 @@ if __name__ == '__main__':
     while vlc.status == Status.PARSING:
         time.sleep(0.5)
     if vlc.status != Status.PARSED:
-        raise SystemExit('{} did not parse to anything meaningful'.format(args.filepath))
+        raise SystemExit(f"{args.filepath} did not parse to anything meaningful")
 
     if args.slave:
         if not os.path.exists(args.slave):
             os.mkfifo(args.slave)
         if not stat.S_ISFIFO(os.stat(args.slave).st_mode):
-            raise SystemExit('{} isn\'t a fifo!'.format(args.slave))
+            raise SystemExit(f"{args.slave} isn't a fifo!")
 
         t = Thread(target=vlc.enslave, args=(args.slave,))
         t.daemon = True
@@ -76,23 +98,24 @@ if __name__ == '__main__':
 
     if args.start_position:
         if args.start_position.isdigit():
-            args.start_position = int(args.start_position, '10')
+            args.start_position = int(args.start_position, "10")
         else:
             hours, minutes, seconds = 0, 0, 0
-            if args.start_position.count(':') == 2:
-                hours, minutes, seconds = args.start_position.split(':')
-            elif args.start_position.count(':') == 1:
-                minutes, seconds = args.start_position.split(':')
+            if args.start_position.count(":") == 2:
+                hours, minutes, seconds = args.start_position.split(":")
+            elif args.start_position.count(":") == 1:
+                minutes, seconds = args.start_position.split(":")
             else:
-                raise SystemExit('Unrecognized start time {}'.format(args.start_position))
+                raise SystemExit(f"Unrecognized start time {args.start_position}")
             seconds = (float(hours) * 3600) + (float(minutes) * 60) + float(seconds)
             args.start_position = seconds
 
         # Let the first frame be the trigger to seek (VLC will)
         def seek():
-            logger.debug('Seek to {}'.format(args.start_position))
+            logger.debug(f"Seek to {args.start_position}")
             vlc.timestamp_ms = args.start_position * 1000
             vlc.remove_event_listener(EventType.MediaPlayerPositionChanged, seek)
+
         vlc.add_event_listener(EventType.MediaPlayerPositionChanged, seek)
 
     if args.end_position:
@@ -102,6 +125,7 @@ if __name__ == '__main__':
             if vlc.timestamp_ms > end_position_ms:
                 vlc.pause()
                 vlc_window.close()
+
         vlc.add_event_listener(EventType.MediaPlayerPositionChanged, terminate)
 
     sys.exit(app.exec())

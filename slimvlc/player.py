@@ -3,43 +3,48 @@ import logging
 import time
 from enum import Enum
 from threading import Thread, Lock
-from contextlib import ExitStack
-from functools import partial
 
 from PySide6 import QtCore
-from PySide6.QtWidgets import QApplication #, QOpenGLWidget
+from PySide6.QtWidgets import QApplication  # , QOpenGLWidget
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtGui import QCursor
 
 from vlc import (
-    Instance, EventType, VideoMarqueeOption, Position, TrackType,
+    Instance,
+    EventType,
+    VideoMarqueeOption,
+    Position,
     Media,
     libvlc_video_get_spu,
     # MediaSlaveType,
 )
 import ctypes
 import vlc
+
 try:
     from vlc import libvlc_errmsg
 except ImportError:
+
     def libvlc_errmsg():
-        '''Sets the LibVLC error status and message for the current thread.
+        """Sets the LibVLC error status and message for the current thread.
         Any previous error is overridden.
         @param fmt: the format string.
         @param ap: the arguments.
         @return: a nul terminated string in any case.
-        '''
-        f = vlc._Cfunctions.get('libvlc_errmsg', None) or \
-            vlc._Cfunction('libvlc_errmsg', (), None, ctypes.c_char_p)
+        """
+        f = vlc._Cfunctions.get("libvlc_errmsg", None) or vlc._Cfunction(
+            "libvlc_errmsg", (), None, ctypes.c_char_p
+        )
         return f()
-    vlc._Globals['libvlc_errmsg'] = libvlc_errmsg
+
+    vlc._Globals["libvlc_errmsg"] = libvlc_errmsg
     libvlc_errmsg()
 
 logger = logging.getLogger(__name__)
 
 # EMPTY_SUBTITLE_SRT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'empty.srt')
 
-'''
+"""
 VLC options:
 --codec=x264,ffmpeg          :: this prevents it from using videotoolbox which breaks on olderitems
 --verbose=3                  :: verbose
@@ -48,7 +53,7 @@ VLC options:
 --sub-source marq{size=20}   :: For the OSD counter marquee
 --play-and-exit              :: Die after play/exit
 --no-metadata-network-access :: avoid fetching metadata
-'''
+"""
 
 
 def humanize_time(seconds):
@@ -65,7 +70,6 @@ class Status(Enum):
 
 
 class VLCWindow(QOpenGLWidget):
-
     def try_fullscreen(self):
         self.showFullScreen()
         self.raise_()
@@ -78,7 +82,7 @@ class VLCWindow(QOpenGLWidget):
         assert isinstance(vlc, VLC)
         self._vlc = vlc
 
-        super(VLCWindow, self).__init__()
+        super().__init__()
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_OpaquePaintEvent)
 
         QApplication.setOverrideCursor(QCursor(QtCore.Qt.BlankCursor))
@@ -90,11 +94,11 @@ class VLCWindow(QOpenGLWidget):
         self._subtitle_index = 0
         self._vlc._player.set_nsobject(self.winId())
 
-        self._vlc.add_event_listener(
-            EventType.MediaPlayerEndReached, self.close)
+        self._vlc.add_event_listener(EventType.MediaPlayerEndReached, self.close)
         self._vlc.add_event_listener(EventType.MediaPlayerStopped, self.close)
         self._vlc.add_event_listener(
-            EventType.MediaPlayerPositionChanged, self._vlc._on_position_change)
+            EventType.MediaPlayerPositionChanged, self._vlc._on_position_change
+        )
         self._vlc.add_event_listener(EventType.MediaPlayerVout, self._on_play_start)
         self.play()
         self.try_fullscreen()
@@ -118,7 +122,7 @@ class VLCWindow(QOpenGLWidget):
 
     def keyPressEvent(self, event):
         key = event.key()
-        if key in (QtCore.Qt.Key_Escape, ord('Q')):
+        if key in (QtCore.Qt.Key_Escape, ord("Q")):
             self.close()
         elif key in (QtCore.Qt.Key_Left, QtCore.Qt.LeftArrow):
             self._vlc.timestamp_ms -= 10 * 1000
@@ -132,20 +136,20 @@ class VLCWindow(QOpenGLWidget):
             self.pause()
         elif key == ord("F"):
             self.try_fullscreen()
-        elif key == ord('O'):
+        elif key == ord("O"):
             self._vlc.osd_visibility = not self._vlc.osd_visibility
-        elif key == ord('C'):
+        elif key == ord("C"):
             self._vlc.cycle_subtitles()
-        elif key == ord('T'):
+        elif key == ord("T"):
             self._vlc.take_snapshot()
         else:
             try:
-                logger.debug('Unknown key {}, {}'.format(key, chr(key)))
+                logger.debug(f"Unknown key {key}, {chr(key)}")
             except UnicodeError:
-                logger.debug('Unknown key {} ???'.format(key))
+                logger.debug(f"Unknown key {key} ???")
 
 
-class VLC(object):
+class VLC:
     INSTANCE = None
 
     def __init__(self, media_path, snapshot_directory=None, osd_visible=False):
@@ -156,8 +160,7 @@ class VLC(object):
         self.snapshot_directory = snapshot_directory
 
         if self.INSTANCE is None:
-            self.INSTANCE = self.__class__.set_instance(
-                self.__class__.make_instance())
+            self.INSTANCE = self.__class__.set_instance(self.__class__.make_instance())
         self._player = self.INSTANCE.media_player_new()
         self.event_manager = self._player.event_manager()
         self.status = Status.REQUIRES_MEDIA
@@ -169,89 +172,97 @@ class VLC(object):
         self.media_info(media_path)
 
     def cycle_subtitles(self, correct_sub_ids=False):
-        assert self.status == Status.PARSED, 'You can\'t cycle subs for this status!'
+        assert self.status == Status.PARSED, "You can't cycle subs for this status!"
         sub_ids = self._player.video_get_spu_description()
-        logger.debug(f'SPUs offered: {sub_ids}')
-        logger.debug(f'Tracks {self._subtitles}')
+        logger.debug(f"SPUs offered: {sub_ids}")
+        logger.debug(f"Tracks {self._subtitles}")
 
         if len(self._subtitles) < 2:
-            logger.debug('No subtitles to cycle with!')
+            logger.debug("No subtitles to cycle with!")
             return
 
         if correct_sub_ids:
-            for track, (track_id, name,) in zip(self._subtitles, sub_ids):
-                if track['id'] != track_id:
+            for track, (
+                track_id,
+                name,
+            ) in zip(self._subtitles, sub_ids):
+                if track["id"] != track_id:
                     logger.warn(
-                        'Track id (named {}) was submitted as {} but really should be {}'.format(
-                            name, track['id'], track_id))
-                track['id'] = track_id
-                track['pretty_name'] = name
+                        "Track id (named {}) was submitted as {} but really should be {}".format(
+                            name, track["id"], track_id
+                        )
+                    )
+                track["id"] = track_id
+                track["pretty_name"] = name
 
         current_subtitle_track = libvlc_video_get_spu(self._player)
-        logger.debug(f'Current subtitle id before set: {current_subtitle_track}')
+        logger.debug(f"Current subtitle id before set: {current_subtitle_track}")
         self._subtitle_index = (self._subtitle_index + 1) % len(self._subtitles)
 
         track = self._subtitles[self._subtitle_index]
-        track_id = track['id']
+        track_id = track["id"]
         result = self._player.video_set_spu(track_id)
         log = logger.debug
         if result == -1:
             log = logger.error
-        log('Setting subtitle track to {} ({}) -> {} -> {}'.format(
-            track['name'], track_id, track, result))
+        log(
+            "Setting subtitle track to {} ({}) -> {} -> {}".format(
+                track["name"], track_id, track, result
+            )
+        )
         if result == -1:
-            log('Unable to set the subtitle track: {}'.format(libvlc_errmsg()))
+            log(f"Unable to set the subtitle track: {libvlc_errmsg()}")
 
         current_subtitle_track = libvlc_video_get_spu(self._player)
-        logger.debug(f'Current subtitle id after set: {current_subtitle_track}')
+        logger.debug(f"Current subtitle id after set: {current_subtitle_track}")
 
     def _handle_mplayer_command(self, command):
         command = urllib.parse.unquote(command)
-        if command.startswith('seek '):
-            logger.debug('Seek ? {}'.format(command))
-            seconds = int(command.split(' ', 2)[1], 10)
-            self.timestamp_ms += (seconds * 1000)
-        elif command.startswith('screenshot'):
-            logger.debug('Screenshot ? {}'.format(command))
+        if command.startswith("seek "):
+            logger.debug(f"Seek ? {command}")
+            seconds = int(command.split(" ", 2)[1], 10)
+            self.timestamp_ms += seconds * 1000
+        elif command.startswith("screenshot"):
+            logger.debug(f"Screenshot ? {command}")
             self.take_snapshot()
-        elif command.startswith('pause'):
+        elif command.startswith("pause"):
             self.pause()
-        elif command.startswith('quit'):
+        elif command.startswith("quit"):
             self._player.stop()
-        elif command.startswith('mute'):
+        elif command.startswith("mute"):
             self._player.audio_toggle_mute()
-        elif command.startswith('osd '):
-            logger.debug('OSD ? {}'.format(command))
+        elif command.startswith("osd "):
+            logger.debug(f"OSD ? {command}")
             try:
                 _, maybe_level, *_ = command.split(" ")
             except ValueError:
                 pass
             else:
                 level = int(maybe_level, 10)
-                logger.debug(f'ignoring osd value {level!r}')
+                logger.debug(f"ignoring osd value {level!r}")
                 self.osd_visibility = not self.osd_visibility
 
     def enslave(self, path):
-        logger.debug(f'Enslaving {path}')
+        logger.debug(f"Enslaving {path}")
         while True:
             try:
-                with open(path, 'rb') as fh:
+                with open(path, "rb") as fh:
                     queue = []
-                    for char in iter(lambda: fh.read(1), b''):
-                        logger.debug('Char! {}'.format(char))
-                        if char == b'\n':
-                            command = b''.join(queue).decode('utf8')
+                    for char in iter(lambda: fh.read(1), b""):
+                        logger.debug(f"Char! {char}")
+                        if char == b"\n":
+                            command = b"".join(queue).decode("utf8")
                             self._handle_mplayer_command(command)
                             queue[:] = []
                             continue
                         queue.append(char)
-                    logger.debug('Drained fifo.')
+                    logger.debug("Drained fifo.")
                 time.sleep(0.2)
             except Exception:
-                logger.exception('wtf')
+                logger.exception("wtf")
 
     def play(self, pause_immediatly=False):
-        logger.info('Playing {}'.format(self._media_info.get_mrl()))
+        logger.info(f"Playing {self._media_info.get_mrl()}")
         self._player.play()
         if pause_immediatly:
             self._player.pause()
@@ -268,10 +279,16 @@ class VLC(object):
     def setup_osd(self, osd_visible):
         self._player.video_set_marquee_int(VideoMarqueeOption.Enable, True)
         self._player.video_set_marquee_int(VideoMarqueeOption.Size, 24)  # pixels
-        self._player.video_set_marquee_int(VideoMarqueeOption.Position.value, Position.top_right.value)
+        self._player.video_set_marquee_int(
+            VideoMarqueeOption.Position.value, Position.top_right.value
+        )
 
-        self._player.video_set_marquee_int(VideoMarqueeOption.Timeout, 1010)  # millisec, 0=forever
-        self._player.video_set_marquee_int(VideoMarqueeOption.Refresh, 100)  # millisec (or sec?)
+        self._player.video_set_marquee_int(
+            VideoMarqueeOption.Timeout, 1010
+        )  # millisec, 0=forever
+        self._player.video_set_marquee_int(
+            VideoMarqueeOption.Refresh, 100
+        )  # millisec (or sec?)
         self.osd_visibility = osd_visible
 
     @property
@@ -288,15 +305,16 @@ class VLC(object):
     @timestamp_ms.setter
     def timestamp_ms(self, val):
         result = float(val) / self.duration_ms
-        logger.debug('Seek -> {} -> {} -> set_position({})'.format(val, self.duration_ms, result))
+        logger.debug(f"Seek -> {val} -> {self.duration_ms} -> set_position({result})")
         self._player.set_position(result)
 
     def _on_position_change(self):
-        seconds = humanize_time(self.timestamp_ms / 1000.)
-        duration = humanize_time(self.duration_ms / 1000.)
+        seconds = humanize_time(self.timestamp_ms / 1000.0)
+        duration = humanize_time(self.duration_ms / 1000.0)
         if self.osd_visibility:
             self._player.video_set_marquee_string(
-                VideoMarqueeOption.Text, '{} / {}'.format(seconds, duration))
+                VideoMarqueeOption.Text, f"{seconds} / {duration}"
+            )
 
     @property
     def osd_visibility(self):
@@ -310,8 +328,8 @@ class VLC(object):
             else:
                 val = 0
 
-        logger.debug('Set the osd visibility to {}'.format(val))
-        assert isinstance(val, int) and val >= 0, 'OSD visibility must be a >=0 integer'
+        logger.debug(f"Set the osd visibility to {val}")
+        assert isinstance(val, int) and val >= 0, "OSD visibility must be a >=0 integer"
         self._player.video_set_marquee_int(VideoMarqueeOption.Opacity, val)
 
     def add_event_listener(self, event_type, func):
@@ -326,23 +344,24 @@ class VLC(object):
         try:
             funcs = self._listeners[event.type]
         except KeyError:
-            logger.exception('{} is not registered'.format(event.type))
+            logger.exception(f"{event.type} is not registered")
         else:
             for func in funcs[:]:
                 try:
                     func()
                 except Exception:
-                    logger.exception('Unable to execute! Removing!')
+                    logger.exception("Unable to execute! Removing!")
                     funcs.remove(func)
 
     def remove_event_listener(self, event_type, func):
         try:
             self._listeners[event_type].remove(func)
         except KeyError:
-            logger.warning('{} is not registered!'.format(event_type))
+            logger.warning(f"{event_type} is not registered!")
         except IndexError:
             logger.warning(
-                'Unable to remove {} -> {} as it never existed!'.format(event_type, func))
+                f"Unable to remove {event_type} -> {func} as it never existed!"
+            )
         else:
             if not self._listeners[event_type]:
                 del self._listeners[event_type]
@@ -355,19 +374,18 @@ class VLC(object):
         return self._media_parsed(self._media_info)
 
     def media_info(self, path):
-        self._subtitles = [{
-            'id': -1,
-            'name': 'nolang',
-            'track': None,
-        }]
+        self._subtitles = [
+            {
+                "id": -1,
+                "name": "nolang",
+                "track": None,
+            }
+        ]
         self.status = Status.PARSING
         media = Media(path)
         self._media_info = media
         mgr = media.event_manager()
-        mgr.event_attach(
-            EventType.MediaParsedChanged,
-            self._on_media_parsed
-        )
+        mgr.event_attach(EventType.MediaParsedChanged, self._on_media_parsed)
         # media.slaves_add(MediaSlaveType.subtitle, 1, 'file://' + EMPTY_SUBTITLE_SRT)
         media.parse_with_options(0x0 | 0x1, 10 * 1000)
 
@@ -379,7 +397,7 @@ class VLC(object):
         with self._lock:
             tracks = tuple(media.tracks_get())
             if not all((media, tracks)):
-                logger.warning('No media detected!')
+                logger.warning("No media detected!")
                 self.status = Status.REQUIRES_MEDIA
                 self._media_info = None
                 return
@@ -387,45 +405,45 @@ class VLC(object):
             mgr.event_detach(EventType.MediaParsedChanged)
 
             if media is self._media_info and timeout:
-                logger.debug('Media registered, timeout ignored')
+                logger.debug("Media registered, timeout ignored")
                 return
 
             if media is not self._media_info:
-                logger.warning('{} is not the same ({} != {}).'.format(
-                    media.get_mrl(),
-                    id(media),
-                    id(self._media_info)))
+                logger.warning(
+                    "{} is not the same ({} != {}).".format(
+                        media.get_mrl(), id(media), id(self._media_info)
+                    )
+                )
                 media.release()
                 del media
                 return
 
-            logger.info('Setting VLC MRL to {}'.format(media.get_mrl()))
+            logger.info(f"Setting VLC MRL to {media.get_mrl()}")
             self._player.set_media(self._media_info)
             self.status = Status.PARSED
 
             for track in tracks:
                 if track.type.value == 2:
-                    self._subtitles.append({
-                        'track': track,
-                        'id': track.id,
-                        'name': track.language
-                    })
+                    self._subtitles.append(
+                        {"track": track, "id": track.id, "name": track.language}
+                    )
 
     @classmethod
     def make_instance(cls, verbose=False):
         assert isinstance(verbose, (int, bool))
         args = [
-            '--sub-source=marq',
-            '-V', 'caopengllayer',
-            '--freetype-fontsize',
-            '30',
-            '--no-metadata-network-access',
-            '--codec=x264,ffmpeg,videotoolbox',
-            '--disable-screensaver',
-            '--no-snapshot-preview',  # Don't show a snapshot preview after taking it
+            "--sub-source=marq",
+            "-V",
+            "caopengllayer",
+            "--freetype-fontsize",
+            "30",
+            "--no-metadata-network-access",
+            "--codec=x264,ffmpeg,videotoolbox",
+            "--disable-screensaver",
+            "--no-snapshot-preview",  # Don't show a snapshot preview after taking it
         ]
         if verbose:
-            args.append('--verbose={}'.format(int(verbose)))
+            args.append(f"--verbose={int(verbose)}")
         return Instance(args)
 
     @classmethod
