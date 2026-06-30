@@ -65,6 +65,15 @@ class Status(Enum):
 
 
 class VLCWindow(QOpenGLWidget):
+
+    def try_fullscreen(self):
+        self.showFullScreen()
+        self.raise_()
+
+    def try_normal(self):
+        self.showNormal()
+        self.raise_()
+
     def __init__(self, vlc):
         assert isinstance(vlc, VLC)
         self._vlc = vlc
@@ -77,8 +86,6 @@ class VLCWindow(QOpenGLWidget):
         p = self.palette()
         p.setColor(self.backgroundRole(), QtCore.Qt.gray)
         self.setPalette(p)
-        self.showFullScreen()
-        self.raise_()
 
         self._subtitle_index = 0
         self._vlc._player.set_nsobject(self.winId())
@@ -90,6 +97,7 @@ class VLCWindow(QOpenGLWidget):
             EventType.MediaPlayerPositionChanged, self._vlc._on_position_change)
         self._vlc.add_event_listener(EventType.MediaPlayerVout, self._on_play_start)
         self.play()
+        self.try_fullscreen()
 
     def _on_play_start(self):
         first_time = self._vlc._subtitle_index is None
@@ -122,6 +130,8 @@ class VLCWindow(QOpenGLWidget):
             self._vlc.timestamp_ms -= 60 * 1000
         elif key == QtCore.Qt.Key_Space:
             self.pause()
+        elif key == ord("F"):
+            self.try_fullscreen()
         elif key == ord('O'):
             self._vlc.osd_visibility = not self._vlc.osd_visibility
         elif key == ord('C'):
@@ -151,7 +161,10 @@ class VLC(object):
         self._player = self.INSTANCE.media_player_new()
         self.event_manager = self._player.event_manager()
         self.status = Status.REQUIRES_MEDIA
-        self.setup_osd(osd_visible is True)
+        visible = False
+        if osd_visible:
+            visible = True
+        self.setup_osd(visible)
 
         self.media_info(media_path)
 
@@ -209,9 +222,14 @@ class VLC(object):
             self._player.audio_toggle_mute()
         elif command.startswith('osd '):
             logger.debug('OSD ? {}'.format(command))
-            level = int(command.split(' ', 1)[1], 10)
-            # self.osd_visibility = level
-            self.osd_visibility = not self.osd_visibility
+            try:
+                _, maybe_level, *_ = command.split(" ")
+            except ValueError:
+                pass
+            else:
+                level = int(maybe_level, 10)
+                logger.debug(f'ignoring osd value {level!r}')
+                self.osd_visibility = not self.osd_visibility
 
     def enslave(self, path):
         logger.debug(f'Enslaving {path}')
@@ -250,7 +268,7 @@ class VLC(object):
     def setup_osd(self, osd_visible):
         self._player.video_set_marquee_int(VideoMarqueeOption.Enable, True)
         self._player.video_set_marquee_int(VideoMarqueeOption.Size, 24)  # pixels
-        # self._player.video_set_marquee_int(VideoMarqueeOption.Position, Position.top_right)
+        self._player.video_set_marquee_int(VideoMarqueeOption.Position.value, Position.top_right.value)
 
         self._player.video_set_marquee_int(VideoMarqueeOption.Timeout, 1010)  # millisec, 0=forever
         self._player.video_set_marquee_int(VideoMarqueeOption.Refresh, 100)  # millisec (or sec?)
@@ -292,8 +310,8 @@ class VLC(object):
             else:
                 val = 0
 
-        assert isinstance(val, int) and val >= 0, 'OSD visibility must be a >=0 integer'
         logger.debug('Set the osd visibility to {}'.format(val))
+        assert isinstance(val, int) and val >= 0, 'OSD visibility must be a >=0 integer'
         self._player.video_set_marquee_int(VideoMarqueeOption.Opacity, val)
 
     def add_event_listener(self, event_type, func):
