@@ -103,4 +103,5 @@ if __name__ == '__main__':
                 vlc.pause()
                 vlc_window.close()
         vlc.add_event_listener(EventType.MediaPlayerPositionChanged, terminate)
-    sys.exit(app.exec_())
+
+    sys.exit(app.exec())
