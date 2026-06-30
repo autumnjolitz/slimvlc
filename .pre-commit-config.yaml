@@ -1,0 +1,103 @@
+repos:
+  -
+    repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      -
+        id: check-ast
+        exclude: |
+            (?x)^(
+                tests\/test_(.*)_([\d]+)\.py
+            )$
+      -
+        id: check-case-conflict
+      -
+        id: check-executables-have-shebangs
+      -
+        id: check-merge-conflict
+      -
+        id: check-yaml
+      -
+        id: end-of-file-fixer
+      -
+        id: check-shebang-scripts-are-executable
+      -
+        id: detect-private-key
+      -
+        id: trailing-whitespace
+        args:
+          - '--markdown-linebreak-ext=rst'
+  -
+    repo: https://github.com/asottile/pyupgrade
+    rev: v3.21.2
+    hooks:
+      - id: pyupgrade
+        args: [ --py38-plus ]
+        exclude: |
+            (?x)^(
+                tests\/test_(.*)_([\d]+)\.py
+                |instruct\/__main__\.py
+            )$
+
+  -
+    repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.15.3
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [  --target-version, py38, --fix ]
+        exclude: |
+            (?x)^(
+                tests\/test_(.*)_([\d]+)\.py
+            )$
+      - id: ruff
+        alias: ruff-check
+        args: [  --target-version, py38 ]
+        exclude: |
+            (?x)^(
+                tests\/test_(.*)_([\d]+)\.py
+            )$
+      # Run the formatter.
+      - id: ruff-format
+        alias: ruff-force-format
+        args: [  --target-version, py38 ]
+        exclude: |
+            (?x)^(
+                tests\/test_(.*)_([\d]+)\.py
+            )$
+      - id: ruff-format
+        alias: ruff-force-format
+        args: [  --target-version, py310 ]
+        files: |
+            (?x)^(
+                tests\/test_(.*)_310\.py
+            )$
+      - id: ruff-format
+        alias: ruff-force-format
+        args: [  --target-version, py312 ]
+        files: |
+            (?x)^(
+                tests\/test_(.*)_312\.py
+            )$
+      - id: ruff-format
+        alias: ruff-format-check
+        args: [  --target-version, py38, --check ]
+        exclude: |
+            (?x)^(
+                tests\/test_(.*)_([\d]+)\.py
+            )$
+      - id: ruff-format
+        alias: ruff-format-check
+        args: [  --target-version, py310, --check ]
+        files: |
+            (?x)^(
+                tests\/test_(.*)_310\.py
+            )$
+      - id: ruff-format
+        alias: ruff-format-check
+        args: [  --target-version, py312, --check ]
+        files: |
+            (?x)^(
+                tests\/test_(.*)_312\.py
+            )$
