@@ -3,6 +3,8 @@ import logging
 import time
 from enum import Enum
 from threading import Thread, Lock
+from contextlib import ExitStack
+from functools import partial
 
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication #, QOpenGLWidget
@@ -331,6 +333,9 @@ class VLC(object):
         time.sleep(timeout)
         self._media_parsed(media, True)
 
+    def _on_media_parsed(self, e):
+        return self._media_parsed(self._media_info)
+
     def media_info(self, path):
         self._subtitles = [{
             'id': -1,
@@ -340,9 +345,11 @@ class VLC(object):
         self.status = Status.PARSING
         media = Media(path)
         self._media_info = media
-        media.event_manager().event_attach(
+        mgr = media.event_manager()
+        mgr.event_attach(
             EventType.MediaParsedChanged,
-            lambda _: self._media_parsed(media))
+            self._on_media_parsed
+        )
         # media.slaves_add(MediaSlaveType.subtitle, 1, 'file://' + EMPTY_SUBTITLE_SRT)
         media.parse_with_options(0x0 | 0x1, 10 * 1000)
 
@@ -352,14 +359,14 @@ class VLC(object):
 
     def _media_parsed(self, media, timeout=False):
         with self._lock:
-            tracks = media.tracks_get()
-            if not media or tracks is None:
+            tracks = tuple(media.tracks_get())
+            if not all((media, tracks)):
                 logger.warning('No media detected!')
                 self.status = Status.REQUIRES_MEDIA
                 self._media_info = None
                 return
-
-            media.event_manager().event_detach(EventType.MediaParsedChanged)
+            mgr = media.event_manager()
+            mgr.event_detach(EventType.MediaParsedChanged)
 
             if media is self._media_info and timeout:
                 logger.debug('Media registered, timeout ignored')
@@ -379,8 +386,7 @@ class VLC(object):
             self.status = Status.PARSED
 
             for track in tracks:
-                logger.debug(f'Track -> {track}')
-                if track.type == TrackType.text:
+                if track.type.value == 2:
                     self._subtitles.append({
                         'track': track,
                         'id': track.id,
