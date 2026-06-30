@@ -68,7 +68,7 @@ if __name__ == "__main__":
         help="OSD visibile from start",
     )
     parser.add_argument(
-        "--slave", help="MPlayer Slave mode emulation - set to a FIFO", default=None
+        "--fifo", help="MPlayer fifo mode emulation - set to a FIFO", default=None
     )
 
     args = parser.parse_args()
@@ -83,13 +83,13 @@ if __name__ == "__main__":
     if vlc.status != Status.PARSED:
         raise SystemExit(f"{args.filepath} did not parse to anything meaningful")
 
-    if args.slave:
-        if not os.path.exists(args.slave):
-            os.mkfifo(args.slave)
-        if not stat.S_ISFIFO(os.stat(args.slave).st_mode):
-            raise SystemExit(f"{args.slave} isn't a fifo!")
+    if args.fifo:
+        if not os.path.exists(args.fifo):
+            os.mkfifo(args.fifo)
+        if not stat.S_ISFIFO(os.stat(args.fifo).st_mode):
+            raise SystemExit(f"{args.fifo} isn't a fifo!")
 
-        t = Thread(target=vlc.enslave, args=(args.slave,))
+        t = Thread(target=vlc.drain_named_fifo, args=(args.fifo,))
         t.daemon = True
         t.start()
 
