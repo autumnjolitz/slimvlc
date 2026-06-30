@@ -3,11 +3,9 @@ import logging
 import time
 from enum import Enum
 from threading import Thread, Lock
-from contextlib import ExitStack
-from functools import partial
 
 from PySide6 import QtCore
-from PySide6.QtWidgets import QApplication #, QOpenGLWidget
+from PySide6.QtWidgets import QApplication  # , QOpenGLWidget
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtGui import QCursor
 
@@ -138,7 +136,7 @@ class VLCWindow(QOpenGLWidget):
             self.pause()
         elif key == ord("F"):
             self.try_fullscreen()
-        elif key == ord('O'):
+        elif key == ord("O"):
             self._vlc.osd_visibility = not self._vlc.osd_visibility
         elif key == ord("C"):
             self._vlc.cycle_subtitles()
@@ -233,15 +231,15 @@ class VLC:
             self._player.stop()
         elif command.startswith("mute"):
             self._player.audio_toggle_mute()
-        elif command.startswith('osd '):
-            logger.debug('OSD ? {}'.format(command))
+        elif command.startswith("osd "):
+            logger.debug(f"OSD ? {command}")
             try:
                 _, maybe_level, *_ = command.split(" ")
             except ValueError:
                 pass
             else:
                 level = int(maybe_level, 10)
-                logger.debug(f'ignoring osd value {level!r}')
+                logger.debug(f"ignoring osd value {level!r}")
                 self.osd_visibility = not self.osd_visibility
 
     def enslave(self, path):
@@ -281,7 +279,9 @@ class VLC:
     def setup_osd(self, osd_visible):
         self._player.video_set_marquee_int(VideoMarqueeOption.Enable, True)
         self._player.video_set_marquee_int(VideoMarqueeOption.Size, 24)  # pixels
-        self._player.video_set_marquee_int(VideoMarqueeOption.Position.value, Position.top_right.value)
+        self._player.video_set_marquee_int(
+            VideoMarqueeOption.Position.value, Position.top_right.value
+        )
 
         self._player.video_set_marquee_int(
             VideoMarqueeOption.Timeout, 1010
@@ -328,8 +328,8 @@ class VLC:
             else:
                 val = 0
 
-        logger.debug('Set the osd visibility to {}'.format(val))
-        assert isinstance(val, int) and val >= 0, 'OSD visibility must be a >=0 integer'
+        logger.debug(f"Set the osd visibility to {val}")
+        assert isinstance(val, int) and val >= 0, "OSD visibility must be a >=0 integer"
         self._player.video_set_marquee_int(VideoMarqueeOption.Opacity, val)
 
     def add_event_listener(self, event_type, func):
@@ -385,10 +385,7 @@ class VLC:
         media = Media(path)
         self._media_info = media
         mgr = media.event_manager()
-        mgr.event_attach(
-            EventType.MediaParsedChanged,
-            self._on_media_parsed
-        )
+        mgr.event_attach(EventType.MediaParsedChanged, self._on_media_parsed)
         # media.slaves_add(MediaSlaveType.subtitle, 1, 'file://' + EMPTY_SUBTITLE_SRT)
         media.parse_with_options(0x0 | 0x1, 10 * 1000)
 
@@ -400,7 +397,7 @@ class VLC:
         with self._lock:
             tracks = tuple(media.tracks_get())
             if not all((media, tracks)):
-                logger.warning('No media detected!')
+                logger.warning("No media detected!")
                 self.status = Status.REQUIRES_MEDIA
                 self._media_info = None
                 return
@@ -427,11 +424,9 @@ class VLC:
 
             for track in tracks:
                 if track.type.value == 2:
-                    self._subtitles.append({
-                        'track': track,
-                        'id': track.id,
-                        'name': track.language
-                    })
+                    self._subtitles.append(
+                        {"track": track, "id": track.id, "name": track.language}
+                    )
 
     @classmethod
     def make_instance(cls, verbose=False):
