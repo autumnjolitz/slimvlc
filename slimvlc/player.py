@@ -242,24 +242,18 @@ class VLC:
                 logger.debug(f"ignoring osd value {level!r}")
                 self.osd_visibility = not self.osd_visibility
 
-    def enslave(self, path):
-        logger.debug(f"Enslaving {path}")
-        while True:
-            try:
-                with open(path, "rb") as fh:
-                    queue = []
-                    for char in iter(lambda: fh.read(1), b""):
-                        logger.debug(f"Char! {char}")
-                        if char == b"\n":
-                            command = b"".join(queue).decode("utf8")
-                            self._handle_mplayer_command(command)
-                            queue[:] = []
-                            continue
-                        queue.append(char)
-                    logger.debug("Drained fifo.")
-                time.sleep(0.2)
-            except Exception:
-                logger.exception("wtf")
+    def drain_named_fifo(self, path):
+        logger.debug(f"Reading named fifo from {path}")
+        with open(path, "rb") as fh:
+            queue = []
+            for char in iter(lambda: fh.read(1), b""):
+                if char == b"\n":
+                    command = b"".join(queue).decode("utf8")
+                    self._handle_mplayer_command(command)
+                    queue[:] = []
+                    continue
+                queue.append(char)
+            logger.debug("Drained fifo.")
 
     def play(self, pause_immediatly=False):
         logger.info(f"Playing {self._media_info.get_mrl()}")
