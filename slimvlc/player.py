@@ -152,9 +152,13 @@ class VLCWindow(QOpenGLWidget):
             except ValueError:
                 raise TypeError(f"Unhandled type for {wtf!r} (a {type(wtf)!r})")
             else:
-                self._vlc.remove_event_listener(event_type, thunk)
-                self._events = (*self._events[:index], *self._events[index + 1 :])
-                logger.debug(f"removed event listener {event_type} {thunk}")
+                try:
+                    self._vlc.remove_event_listener(event_type, thunk)
+                except Exception:
+                    logger.exception(f"Unable to remove event_listener for {thunk!r}")
+                else:
+                    self._events = (*self._events[:index], *self._events[index + 1 :])
+                    logger.debug(f"removed event listener {event_type} {thunk}")
 
     def _on_player_done(self, event):
         ms: int = self._vlc.timestamp_ms
