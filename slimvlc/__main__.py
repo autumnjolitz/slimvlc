@@ -94,7 +94,7 @@ if __name__ == "__main__":
         t.start()
 
     app = QApplication(sys.argv)
-    vlc_window = VLCWindow(vlc)
+    vlc_window = VLCWindow(vlc, app)
 
     if args.start_position:
         if args.start_position.isdigit():

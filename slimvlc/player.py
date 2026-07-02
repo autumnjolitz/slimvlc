@@ -2,6 +2,7 @@ import urllib.parse
 import logging
 import time
 from enum import Enum
+import functools
 from threading import Thread, Lock
 
 from PySide6 import QtCore
@@ -78,9 +79,13 @@ class VLCWindow(QOpenGLWidget):
         self.showNormal()
         self.raise_()
 
-    def __init__(self, vlc):
+    def __init__(self, vlc, app: QApplication | None = None):
         assert isinstance(vlc, VLC)
         self._vlc = vlc
+        if app is None:
+            app = QApplication.instance()
+        self._app = app
+        self._events = ()
 
         super().__init__()
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_OpaquePaintEvent)
@@ -93,15 +98,84 @@ class VLCWindow(QOpenGLWidget):
 
         self._subtitle_index = 0
         self._vlc._player.set_nsobject(self.winId())
-
-        self._vlc.add_event_listener(EventType.MediaPlayerEndReached, self.close)
-        self._vlc.add_event_listener(EventType.MediaPlayerStopped, self.close)
-        self._vlc.add_event_listener(
-            EventType.MediaPlayerPositionChanged, self._vlc._on_position_change
-        )
-        self._vlc.add_event_listener(EventType.MediaPlayerVout, self._on_play_start)
+        self._setup_events()
         self.play()
         self.try_fullscreen()
+
+    def add_event_listener(
+        self,
+        event: EventType,
+        func,
+        *args,
+        **kwargs,
+    ):
+        thunk = func
+        if args or kwargs:
+            thunk = functools.partial(func, *args, **kwargs)
+        self._events = (*self._events, (event, func, thunk))
+        self._vlc.add_event_listener(event, thunk)
+        return (event, thunk)
+
+    def remove_event_listener(self, event: EventType, func):
+        for index, (e, _, thunk) in self._events:
+            if (e, thunk) == (event, func):
+                self._events = (*self._events[:index], *self._events[index + 1 :])
+                return func
+        raise LookupError(event, func)
+
+    def _setup_events(self):
+        self.add_event_listener(
+            EventType.MediaPlayerEndReached,
+            self._on_player_done,
+            EventType.MediaPlayerEndReached,
+        )
+        self.add_event_listener(
+            EventType.MediaPlayerStopped,
+            self._on_player_done,
+            EventType.MediaPlayerStopped,
+        )
+        self.add_event_listener(
+            EventType.MediaPlayerPositionChanged, self._vlc._on_position_change
+        )
+        self.add_event_listener(
+            EventType.MediaPlayerVout,
+            self._on_play_start,
+        )
+        logger.debug(f"Setup {len(self._events)} event handlers")
+
+    def _remove_events(self):
+        logger.debug(f"_remove_events: {len(self._events)}")
+        for index in range(len(self._events) - 1, -1, -1):
+            wtf = self._events[index]
+            try:
+                event_type, _, thunk = wtf
+            except ValueError:
+                raise TypeError(f"Unhandled type for {wtf!r} (a {type(wtf)!r})")
+            else:
+                self._vlc.remove_event_listener(event_type, thunk)
+                self._events = (*self._events[:index], *self._events[index + 1 :])
+                logger.debug(f"removed event listener {event_type} {thunk}")
+
+    def _on_player_done(self, event):
+        ms: int = self._vlc.timestamp_ms
+        logger.info(
+            f"_on_player_done: {event!r}, "
+            f"at time {humanize_time(ms / 1000.0)} ({ms:,d} ms)"
+        )
+        self.quit()
+
+    def quit(self):
+        logger.debug(f"{self!r}->quit!")
+        self._app.quit()
+
+    def closeEvent(self, event):
+        logger.debug(f"close event! {event!r}")
+        if self.player_status == "is_playing":
+            self.pause()
+        self.showNormal()
+        self._remove_events()
+        logger.debug("accepting close")
+        event.accept()
 
     def _on_play_start(self):
         first_time = self._vlc._subtitle_index is None
@@ -109,9 +183,16 @@ class VLCWindow(QOpenGLWidget):
         if first_time:
             self._vlc._player.video_set_spu(-1)
             self._vlc.cycle_subtitles(first_time)
+        logger.debug(f"_on_play_start: {first_time=!r}")
 
     def play(self):
         self._vlc.play()
+
+    @property
+    def player_status(self):
+        if self._vlc._player.is_playing():
+            return "playing"
+        return "not_playing"
 
     def pause(self):
         if self._vlc._player.is_playing():
